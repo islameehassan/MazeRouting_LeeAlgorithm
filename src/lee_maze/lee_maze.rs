@@ -1,4 +1,4 @@
-use std::{collections::{BinaryHeap, HashMap, HashSet}, u32::MAX};
+use std::{collections::{BinaryHeap, HashMap, HashSet, VecDeque}, u32::MAX};
 use crate::{Net,Layer,Pin};
 use std::cmp::Reverse;
 
@@ -83,6 +83,58 @@ impl Maze {
         }
         result
     }
+
+    fn bfs(&mut self) {
+        let mut queue = VecDeque::new();
+        let mut parent: HashMap<Coord, Coord> = HashMap::new();
+
+        for &source in &self.start_cords {
+            queue.push_back(source);
+        }
+
+        let mut any_updates = true;
+
+        while any_updates {
+            any_updates = false;
+            let mut next_queue = VecDeque::new();
+
+            while let Some((l, r, c)) = queue.pop_front() {
+                let cost = match self.grid[l][r][c] {
+                    Cell::Candidate(existing_cost) => existing_cost,
+                    Cell::Target(existing_cost) => existing_cost,
+                    _ => 0,
+                };
+
+                for ((nl, nr, nc), move_cost) in self.neighbors(l, r, c) {
+                    let new_cost = cost + move_cost;
+
+                    match self.grid[nl][nr][nc] {
+                        Cell::Free => {
+                            self.grid[nl][nr][nc] = Cell::Candidate(new_cost);
+                            parent.insert((nl, nr, nc), (l, r, c));
+                            next_queue.push_back((nl, nr, nc));
+                            any_updates = true;
+                        }
+                        Cell::Candidate(existing_cost) if new_cost < existing_cost => {
+                            self.grid[nl][nr][nc] = Cell::Candidate(new_cost);
+                            parent.insert((nl, nr, nc), (l, r, c));
+                            next_queue.push_back((nl, nr, nc));
+                            any_updates = true;
+                        }
+                        Cell::Target(existing_cost) if new_cost < existing_cost => {
+                            self.grid[nl][nr][nc] = Cell::Target(new_cost);
+                            parent.insert((nl, nr, nc), (l, r, c));
+                            next_queue.push_back((nl, nr, nc));
+                            any_updates = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            queue = next_queue;
+        }
+    }
+
 
     // Dijkstra to find the path between start and target
     fn dijkstra(&mut self) {
