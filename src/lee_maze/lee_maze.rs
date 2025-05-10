@@ -1,33 +1,40 @@
-use std::collections::{VecDeque, HashMap};
+use std::{collections::{BinaryHeap, HashMap, HashSet}, u32::MAX};
+use crate::{Net,Layer,Pin};
+use std::cmp::Reverse;
 
 type Coord = (usize, usize, usize); // (layer, row, col)
 
+#[derive(Clone,PartialEq,Debug)]
 pub enum Cell {
     Free,
     Blocked,
-    Routed,
-    //Via,     
+    Routed,    
     Start,      
-    Target,     
+    Target(u32),
     Candidate(u32),
 }
 
-struct Maze {
+pub struct Maze {
     grid: Vec<Vec<Vec<Cell>>>, // [layer][row][col]
     start_cords: Vec<Coord>,
     via_cost: u32,
     width: usize,
-    height: usize
+    height: usize,
+    nonpreferred_direction_cost: u32,
+    vias: HashSet<Coord>
 }
 
 impl Maze {
     // Constructor to initialize the maze grid
-    fn new(width: usize, height: usize, layers: usize, via_cost: u32) -> Self {
+    pub fn new(width: usize, height: usize, layers: usize, via_cost: u32, nonpreferred_direction_cost: u32) -> Self {
         Maze {
             grid: vec![vec![vec![Cell::Free; height]; width]; layers],
+            start_cords: vec![],
             via_cost,
             width,
             height,
+            nonpreferred_direction_cost,
+            vias: HashSet::new()
         }
     }
 
@@ -47,8 +54,8 @@ impl Maze {
             (0, 1, 0),  // down
             (0, 0, -1), // left (horizontal)
             (0, 0, 1),  // right
-            // (-1, 0, 0), // layer down (via)
-            // (1, 0, 0),  // layer up
+            (-1, 0, 0), // layer down (via)
+            (1, 0, 0),  // layer up
         ];
 
         let mut result = Vec::new();
@@ -56,21 +63,20 @@ impl Maze {
             let nl = l as isize + dl;
             let nr = r as isize + dr;
             let nc = c as isize + dc;
-
+            
             if self.is_valid(nl, nr, nc) {
                 let nl = nl as usize;
                 let nr = nr as usize;
                 let nc = nc as usize;
-
                 // Base cost: 1 for horizontal/vertical, via_cost for via
-                let mut cost = if dl != 0 { self.via_cost } else { 1 };
+                let mut cost = if dl != 0 {  self.via_cost } else { 1 };
 
                 // Directional penalties
-                if l % 2 == 0 && dr != 0 { cost += 5; }  // Vertical cost on even layers
-                if l % 2 != 0 && dc != 0 { cost += 5; }  // Horizontal cost on odd layers
+                if l % 2 == 0 && dr != 0 { cost += self.nonpreferred_direction_cost; }  // Vertical cost on even layers
+                if l % 2 != 0 && dc != 0 { cost += self.nonpreferred_direction_cost; }  // Horizontal cost on odd layers
 
                 match self.grid[nl][nr][nc] {
-                    Cell::Free | Cell::Candidate(_) => result.push(((nl, nr, nc), cost)),
+                    Cell::Free | Cell::Candidate(_) | Cell::Target(_) => result.push(((nl, nr, nc), cost)),
                     _ => {}
                 }
             }
@@ -78,76 +84,72 @@ impl Maze {
         result
     }
 
-    // BFS to find the path between start and target
-    fn bfs(&mut self, sources: Vec<Coord>) -> Option<Vec<Coord>> {
-        let mut queue = VecDeque::new();
+    // Dijkstra to find the path between start and target
+    fn dijkstra(&mut self) {
+        let mut queue = BinaryHeap::new(); // Min-heap via Reverse
         let mut parent: HashMap<Coord, Coord> = HashMap::new();
-
-        // Mark sources as Start
-        for source in &sources {
-            self.grid[source.0][source.1][source.2] = Cell::Start; // Start cell
-            queue.push_back(*source);
+    
+        for &source in &self.start_cords {
+            queue.push((Reverse(0), source));
         }
-
-        while let Some((l, r, c)) = queue.pop_front() {
-            // Check if we've reached a target cell
-            if let Cell::Target = self.grid[l][r][c] {
-                return Some(self.reconstruct_path(sources[0], (l, r, c), &parent));
+        
+        while let Some((Reverse(cost), (l, r, c))) = queue.pop() {
+            if let Cell::Target(_) = self.grid[l][r][c] {
+                self.reconstruct_path((l, r, c), &parent);
+                return;
             }
-
             for ((nl, nr, nc), move_cost) in self.neighbors(l, r, c) {
-                let next = (nl, nr, nc);
-
+                let new_cost = cost + move_cost;
+            
                 match self.grid[nl][nr][nc] {
                     Cell::Free => {
-                        // Update the cost in the grid directly if the cell is free
-                        self.grid[nl][nr][nc] = Cell::Candidate(move_cost); // Mark as candidate (potential path)
-                        parent.insert(next, (l, r, c)); // Set parent for path reconstruction
-                        queue.push_back(next);
+                        self.grid[nl][nr][nc] = Cell::Candidate(new_cost);
+                        parent.insert((nl, nr, nc), (l, r, c));
+                        queue.push((Reverse(new_cost), (nl, nr, nc)));
                     }
                     Cell::Candidate(existing_cost) => {
-                        // If it's already a candidate, check the cost and update if necessary
-                        if move_cost < existing_cost {
-                            self.grid[nl][nr][nc] = Cell::Candidate(move_cost); // Update to new lower cost
-                            parent.insert(next, (l, r, c)); // Set parent for path reconstruction
-                            queue.push_back(next);
+                        if new_cost < existing_cost {
+                            self.grid[nl][nr][nc] = Cell::Candidate(new_cost);
+                            parent.insert((nl, nr, nc), (l, r, c));
+                            queue.push((Reverse(new_cost), (nl, nr, nc)));
                         }
                     }
-                    _ => {} // If the cell is blocked or routed, we skip it
+                    Cell::Target(existing_cost) => {
+                        if new_cost < existing_cost {
+                            self.grid[nl][nr][nc] = Cell::Target(new_cost);
+                            parent.insert((nl, nr, nc), (l, r, c));
+                            queue.push((Reverse(new_cost), (nl, nr, nc)));
+                        }
+                    },
+                    _ => {}
                 }
             }
         }
-
-        None // No path found
     }
 
-    fn reconstruct_path(&self, start: Coord, end: Coord, parent: &HashMap<Coord, Coord>) -> Vec<Coord> {
-        let mut path = Vec::new();
+    fn reconstruct_path(&mut self, end: Coord, parent: &HashMap<Coord, Coord>) {
         let mut current = end;
-    
-        while current != start {
-            path.push(current);
-            // Add this cell to start_cords (except for the start)
-            if current != start {
-                self.start_cords.push(current);  // Add to start_cords
+
+        while self.grid[current.0][current.1][current.2] != Cell::Start {
+            let prev = *parent.get(&current).unwrap();
+
+            // If changing layer, mark as Via
+            if current.0 != prev.0 {
+                self.vias.insert(current);
+                self.vias.insert(prev);
             }
-            current = *parent.get(&current).unwrap();
+
+            self.grid[current.0][current.1][current.2] = Cell::Start;
+
+            self.start_cords.push(current);
+            current = prev;
         }
-        path.push(start);
-        path.reverse(); // Reverse to get the path from start to end
-    
-        path
     }
 
-    fn mark_path_as_sources(&mut self, path: &Vec<Coord>) {
-        for (l, r, c) in path {
-            self.grid[*l][*r][*c] = Cell::Start; // Mark path as sources
-        }
-    }
 
     fn clear_candidates(&mut self) {
         for layer in &mut self.grid {
-            for row in &mut layer {
+            for row in layer {
                 for cell in row {
                     if let Cell::Candidate(_) = *cell {
                         *cell = Cell::Free; // Clear candidates
@@ -157,88 +159,113 @@ impl Maze {
         }
     }
 
-    fn process_nets(&mut self, nets: &Vec<Net>) {
-        let mut all_sources = Vec::new();
-
-        // Start with the first set of sources from the nets
+    pub fn process_nets(&mut self, nets: &Vec<Net>) {
         for net in nets {
-            let start_pin = &net.pins[0];
+            // insert the start pin for this net
+            self.set_as_target(&net.pins);
+            let start_pin: &Pin = &net.pins[0];   // &net.pins[0]; TODO: to be replaced by a function that gets the closest pin to a corner
             let start_layer = match start_pin.layer {
                 Layer::Layer1 => 0,  // Use layer 0 for Layer1
                 Layer::Layer2 => 1,  // Use layer 1 for Layer2
             };
 
             let start = (start_layer, start_pin.x as usize, start_pin.y as usize);
-            all_sources.push(start);
+            self.grid[start_layer][start_pin.x as usize][start_pin.y as usize] = Cell::Start;
+            //all_sources.push(start);
+            self.start_cords.clear();
             self.start_cords.push(start);  // Add this source to start_cords
-        }
+            
+            // 3
+            for _ in 0..net.pins.len() - 1 {
+                // Perform Dijkstra to route from current sources
+                self.dijkstra();
+                self.clear_candidates();  // Reset candidate cells
+                self.print_layers_side_by_side();
 
-        // Process the nets in rounds
-        while !self.start_cords.is_empty() {
-            let current_sources = self.start_cords.clone();  // Save the current sources
-
-            for net in nets {
-                let start_pin = &net.pins[0];
-                let target_pin = &net.pins[1];
-
-                let target_layer = match target_pin.layer {
-                    Layer::Layer1 => 0,
-                    Layer::Layer2 => 1,
-                };
-
-                let target = (target_layer, target_pin.x as usize, target_pin.y as usize);
-
-                // Set the target in the grid
-                self.grid[target.0][target.1][target.2] = Cell::Target;
-
-                // Perform BFS to route from current sources
-                if let Some(path) = self.bfs(current_sources.clone()) {
-                    self.mark_path_as_sources(&path);  // Mark all path cells as sources
-                    self.clear_candidates();  // Reset candidate cells
-                    
-                    // Add new sources (target) to the list for the next round
-                    self.start_cords.push(target);
-                }
             }
+            self.finalize_routing();
+            println!("\nFinal Layout");
+            self.print_layers_side_by_side();
         }
     }
 
 
-    fn finalize_routing(&mut self, all_sources: Vec<Coord>) {
-        for source in all_sources {
+    fn finalize_routing(&mut self) {
+        for source in &self.start_cords {
             self.grid[source.0][source.1][source.2] = Cell::Routed; // Mark final sources as routed
         }
     }
 
-    fn initialize_obstacles(&mut self, obstacles: &Vec<(i16, i16)>) {
+    fn set_as_target(&mut self, pins: &Vec<Pin>) {
+        for pin in pins {
+            let layer = match pin.layer {
+                Layer::Layer1 => 0,  // Use layer 0 for Layer1
+                Layer::Layer2 => 1,  // Use layer 1 for Layer2
+            };
+            self.grid[layer][pin.x as usize][pin.y as usize] = Cell::Target(MAX);
+        }
+    }
+
+    pub fn initialize_obstacles(&mut self, obstacles: &Vec<(i16, i16)>) {
         for (x, y) in obstacles {
             if *x >= 0 && *x < self.width as i16 && *y >= 0 && *y < self.height as i16 {
-                self.grid[*x as usize][*y as usize][0] = Cell::Blocked; // Mark as Blocked in Layer 0
+                self.grid[0][*x as usize][*y as usize] = Cell::Blocked; // Mark as Blocked in Layer 1
             }
         }
     }
-}
 
-fn main() {
-    // Example input configuration
-    let config = Config {
-        grid_width: 5,
-        grid_height: 5,
-        obstacles: vec![(2, 2), (3, 3)],  // Example obstacles
-        nets: vec![
-            Net { net_name: String::from("Net1"), pins: vec![Pin { x: 0, y: 0, layer: Layer::Layer1 }, Pin { x: 4, y: 4, layer: Layer::Layer2 }] },
-            Net { net_name: String::from("Net2"), pins: vec![Pin { x: 0, y: 1, layer: Layer::Layer1 }, Pin { x: 4, y: 1, layer: Layer::Layer2 }] },
-        ],
-        via_cost: 10,
-        nonpreferred_direction_cost: 5,
-    };
+    pub fn print_layers_side_by_side(&self) {
+        println!("Maze Layers 1 & 2 (Side by Side)");
+        let max_rows = self.grid[0].len().max(self.grid[1].len());
+        
+        for r in 0..max_rows {
+            // Layer 0
+            if r < self.grid[0].len() {
+                for c in 0..self.grid[0][r].len() {
+                    let coord = (0, r, c);
+                    let symbol = if self.vias.contains(&coord) {
+                        " V ".to_string()
+                    } else {
+                        match self.grid[0][r][c] {
+                            Cell::Free => " . ".to_string(),
+                            Cell::Blocked => " # ".to_string(),
+                            Cell::Routed => " * ".to_string(),
+                            Cell::Start => " S ".to_string(),
+                            Cell::Target(_) => " T ".to_string(),
+                            Cell::Candidate(cost) => format!("{:>2} ", cost),
+                        }
+                    };
+                    print!("{}", symbol);
+                }
+            } else {
+                print!("{}", "   ".repeat(self.grid[0][0].len()));
+            }
 
-    // Initialize maze based on the config
-    let mut maze = Maze::new(config.grid_width as usize, config.grid_height as usize, 2, config.via_cost as u32);
+            // Layer separation with vertical bar
+            print!("  │  ");
 
-    // Add obstacles to the maze
-    maze.initialize_obstacles(&config.obstacles);
+            // Layer 1
+            if r < self.grid[1].len() {
+                for c in 0..self.grid[1][r].len() {
+                    let coord = (1, r, c);
+                    let symbol = if self.vias.contains(&coord) {
+                        " V ".to_string()
+                    } else {
+                        match self.grid[1][r][c] {
+                            Cell::Free => " . ".to_string(),
+                            Cell::Blocked => " # ".to_string(),
+                            Cell::Routed => " * ".to_string(),
+                            Cell::Start => " S ".to_string(),
+                            Cell::Target(_) => " T ".to_string(),
+                            Cell::Candidate(cost) => format!("{:>2} ", cost),
+                        }
+                    };
+                    print!("{}", symbol);
+                }
+            }
 
-    // Process the nets
-    maze.process_nets(&config.nets);
+            println!("| Row {}", r);
+        }
+    }
+
 }

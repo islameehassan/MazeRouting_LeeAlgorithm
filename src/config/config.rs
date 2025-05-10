@@ -3,19 +3,19 @@ use std::error::Error;
 use std::fs;
 use std::result::Result;
 
-static DEFAULT_VIA_COST: i32 = 30;
-static DEFAULT_DIRECTION_CHANGE: i32 = 30;
+static DEFAULT_VIA_COST: i32 = 19;
+static DEFAULT_DIRECTION_CHANGE: i32 = 5;
 
 use crate::{Layer,Net,Pin};
 
 #[derive(Debug)]
 pub struct Config {
-    grid_width: i16,
-    grid_height: i16,
-    obstacles: Vec<(i16, i16)>,
-    nets: Vec<Net>,        // each net has a vector of pins
-    via_cost: i32, // assuming a very high cost (can have a default value if not specified by the user)
-    nonpreferred_direction_cost: i32,
+    pub grid_width: i16,
+    pub grid_height: i16,
+    pub obstacles: Vec<(i16, i16)>,
+    pub nets: Vec<Net>,        // each net has a vector of pins
+    pub via_cost: i32, // assuming a very high cost (can have a default value if not specified by the user)
+    pub nonpreferred_direction_cost: i32,
 }
 
 impl Config {
@@ -100,7 +100,7 @@ impl Config {
             }
         }
         return Ok(Net {
-            net_name: net_name,
+            _net_name: net_name,
             pins: pins,
         });
     }
@@ -209,7 +209,7 @@ mod tests {
     fn test_parse_net_valid() {
         let line = "net1 (1, 10, 20) (2, 30, 40)";
         let net = Config::parse_net(line).unwrap();
-        assert_eq!(net.net_name, "net1");
+        assert_eq!(net._net_name, "net1");
         assert_eq!(net.pins.len(), 2);
         assert_eq!(net.pins[0].x, 10);
         assert_eq!(net.pins[0].y, 20);
@@ -230,7 +230,7 @@ mod tests {
         ].into_iter().peekable();
         let nets = Config::parse_all_nets(&mut lines).unwrap();
         assert_eq!(nets.len(), 2);
-        assert_eq!(nets[0].net_name, "net1");
+        assert_eq!(nets[0]._net_name, "net1");
     }
 
     #[test]

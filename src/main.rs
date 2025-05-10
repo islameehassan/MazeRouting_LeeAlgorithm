@@ -2,6 +2,11 @@ use std::env;
 use std::process;
 use std::path::Path;
 
+pub mod lee_maze;
+pub mod config;
+use crate::lee_maze::lee_maze::Maze;
+use crate::config::config::Config;
+
 
 static USAGE_MSG: &'static str = r#"
 Usage: cargo run -- <input_file>
@@ -34,10 +39,6 @@ fn usage(args: &[String]) -> Result<&str, &'static str> {
     }
 }
 
-pub mod config;
-
-use crate::config::config::Config;
-
 #[derive(Debug)]
 pub enum Layer {
     Layer1,
@@ -53,12 +54,8 @@ pub struct Pin {
 
 #[derive(Debug)]
 pub struct Net {
-    net_name: String,
+    _net_name: String,
     pins: Vec<Pin>,
-}
-
-pub fn run(filename: String) {
-    
 }
 
 
@@ -78,6 +75,13 @@ fn main() {
         process::exit(1);
     });
 
-    println!("{:?}",config)
+    // Initialize maze based on the config
+    let mut maze = Maze::new(config.grid_width as usize, config.grid_height as usize, 2, config.via_cost as u32, config.nonpreferred_direction_cost as u32);
+
+    // Add obstacles to the maze
+    maze.initialize_obstacles(&config.obstacles);
+
+    // Process the nets
+    maze.process_nets(&config.nets);
 
 }
