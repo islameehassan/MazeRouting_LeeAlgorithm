@@ -1,12 +1,12 @@
-use core::net;
 use std::cmp::Reverse;
-use std::hash::Hash;
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
     u32::MAX,
 };
 
 use crate::{Coord, Net, Pin};
+use std::fs::File;
+use std::io::{Write};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Cell {
@@ -294,5 +294,49 @@ impl Maze {
 
             println!(" │ Row {}", r);
         }
+    }
+
+    pub fn export_paths_txt(&self, filename: &str) -> std::io::Result<()> {
+        let mut file = File::create(filename)?;
+        let mut net_paths: HashMap<u8, Vec<Coord>> = HashMap::new();
+        for layer in 0..self.grid.len() {
+            for x in 0..self.grid[layer].len() {
+                for y in 0..self.grid[layer][x].len() {
+                    if let Cell::Routed(net_id) = self.grid[layer][x][y] {
+                        net_paths.entry(net_id).or_default().push((layer, x, y));
+                    }
+                }
+            }
+        }
+        for (net_id, mut path) in net_paths {
+            path.sort();
+            write!(file, "net{}", net_id)?;
+            for (l, x, y) in path {
+                write!(file, " ({},{},{})", l + 1, x, y)?;
+            }
+            writeln!(file)?;
+        }
+        Ok(())
+    }
+
+    pub fn export_paths_csv(&self, filename: &str) -> std::io::Result<()> {
+        let mut file = File::create(filename)?;
+        writeln!(file, "net,layer,x,y")?;
+        let mut net_paths: HashMap<u8, Vec<Coord>> = HashMap::new();
+        for layer in 0..self.grid.len() {
+            for x in 0..self.grid[layer].len() {
+                for y in 0..self.grid[layer][x].len() {
+                    if let Cell::Routed(net_id) = self.grid[layer][x][y] {
+                        net_paths.entry(net_id).or_default().push((layer, x, y));
+                    }
+                }
+            }
+        }
+        for (net_id, path) in net_paths {
+            for (l, x, y) in path {
+                writeln!(file, "net{}, {}, {}, {}", net_id, l + 1, x, y)?;
+            }
+        }
+        Ok(())
     }
 }

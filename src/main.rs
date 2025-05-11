@@ -33,4 +33,19 @@ fn main() {
 
     // Process the nets
     maze.process_nets(&config.nets);
+
+    // Export routed paths to .txt
+    if let Err(e) = maze.export_paths_txt("routed_output.txt") {
+        eprintln!("Failed to write routed_output.txt: {}", e);
+    } else {
+        println!("Routed paths written to routed_output.txt");
+    }
+
+    // Export routed paths to .csv
+    if let Err(e) = maze.export_paths_csv("routed_output.csv") {
+        eprintln!("Failed to write routed_output.csv: {}", e);
+    } else {
+        println!("CSV output written to routed_output.csv");
+    }
+
 }
