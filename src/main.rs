@@ -1,8 +1,8 @@
 use std::env;
-use std::path::Path;
 use std::process;
 
 use mazerouting_lee::{usage, Config, Maze};
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -19,18 +19,61 @@ fn main() {
         process::exit(1);
     });
 
-    // Initialize maze based on the config
-    let mut maze = Maze::new(
+    // === RUN 1: Original Order ===
+    println!("\n==============================");
+    println!("🧪 Running: Unordered Routing");
+    println!("==============================");
+    println!("Routing Order (Original):");
+    for net in &config.nets {
+        let name = &net._net_name;
+        let first = net.pins.first().unwrap().coord;
+        let last = net.pins.last().unwrap().coord;
+        let dist = (first.1 as isize - last.1 as isize).abs()
+                 + (first.2 as isize - last.2 as isize).abs();
+        println!("{} → distance: {}", name, dist);
+    }
+
+    let mut maze1 = Maze::new(
         config.grid_width as usize,
         config.grid_height as usize,
         2,
         config.via_cost as u32,
         config.nonpreferred_direction_cost as u32,
     );
+    maze1.initialize_obstacles(&config.obstacles);
+    maze1.process_nets(&config.nets);
 
-    // Add obstacles to the maze
-    maze.initialize_obstacles(&config.obstacles);
+    // === RUN 2: Longest Net First Order ===
+    println!("\n============================================");
+    println!("🏁 Running: Sorted Routing (Longest Net First)");
+    println!("============================================");
 
-    // Process the nets
-    maze.process_nets(&config.nets);
+    let mut sorted_nets = config.nets.clone();
+    sorted_nets.sort_by_key(|net| {
+        let first = net.pins.first().unwrap().coord;
+        let last = net.pins.last().unwrap().coord;
+        let dist = (first.1 as isize - last.1 as isize).abs()
+                 + (first.2 as isize - last.2 as isize).abs();
+        std::cmp::Reverse(dist) // Reverse for descending
+    });
+
+    println!("Routing Order (Sorted):");
+    for net in &sorted_nets {
+        let name = &net._net_name;
+        let first = net.pins.first().unwrap().coord;
+        let last = net.pins.last().unwrap().coord;
+        let dist = (first.1 as isize - last.1 as isize).abs()
+                 + (first.2 as isize - last.2 as isize).abs();
+        println!("{} → distance: {}", name, dist);
+    }
+
+    let mut maze2 = Maze::new(
+        config.grid_width as usize,
+        config.grid_height as usize,
+        2,
+        config.via_cost as u32,
+        config.nonpreferred_direction_cost as u32,
+    );
+    maze2.initialize_obstacles(&config.obstacles);
+    maze2.process_nets(&sorted_nets);
 }

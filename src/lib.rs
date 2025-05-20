@@ -35,15 +35,15 @@ pub fn usage(args: &[String]) -> Result<&str, &'static str> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pin {
     pub coord: Coord,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Net {
-    _net_name: String,
-    pins: Vec<Pin>,
+    pub _net_name: String,
+    pub pins: Vec<Pin>,
 }
 
 type Coord = (usize, usize, usize); // layer,x,y
