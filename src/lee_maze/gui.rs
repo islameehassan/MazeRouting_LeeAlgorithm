@@ -92,7 +92,7 @@ impl App for MazeApp {
     }
 }
 
-fn net_color(net_id: u8) -> Color32 {
+fn net_color(net_id: u32) -> Color32 {
     const COLORS: [Color32; 8] = [
         Color32::from_rgb(31, 119, 180),  // blue
         Color32::from_rgb(255, 127, 14),  // orange

@@ -12,8 +12,8 @@ use crate::{Coord, Net, Pin};
 pub enum Cell {
     Free,
     Blocked,
-    Routed(u8),     // indicate which net
-    Start(u8),      // indicate which net
+    Routed(u32),     // indicate which net
+    Start(u32),      // indicate which net
     Target(u32),    // cost
     Candidate(u32), // cost
 }
@@ -27,7 +27,7 @@ pub struct Maze {
     pub nonpreferred_direction_cost: u32,
     pub vias: HashSet<Coord>,
     pub original_sources: HashSet<Coord>,
-    pub current_net_processed: u8,
+    pub current_net_processed: u32,
     pub routed_paths: Vec<(String, Vec<Coord>)>,
 }
 
@@ -190,7 +190,7 @@ impl Maze {
                 ._net_name
                 .strip_prefix("net")
                 .unwrap()
-                .parse::<u8>()
+                .parse::<u32>()
                 .unwrap();
 
             self.current_net_processed = net_num;

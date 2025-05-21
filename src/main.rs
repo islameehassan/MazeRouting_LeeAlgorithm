@@ -21,7 +21,7 @@ fn main() {
 
     // === RUN 1: Original Order ===
     println!("\n==============================");
-    println!("🧪 Running: Unordered Routing");
+    println!(" Running: Unordered Routing");
     println!("==============================");
     println!("Routing Order (Original):");
     for net in &config.nets {
@@ -45,7 +45,7 @@ fn main() {
 
     // === RUN 2: Longest Net First Order ===
     println!("\n============================================");
-    println!("🏁 Running: Sorted Routing (Longest Net First)");
+    println!(" Running: Sorted Routing (Longest Net First)");
     println!("============================================");
 
     let mut sorted_nets = config.nets.clone();
@@ -87,13 +87,13 @@ fn main() {
         process::exit(1);
     });
 
-    // === Launch GUI with maze2 ===
+    // === Launch GUI with maze2 (The One With The Heuristic) ===
     let native_options = eframe::NativeOptions::default();
 
     eframe::run_native(
         "Maze Routing Visualizer",
         native_options,
-        Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze2)) as Box<dyn App>)),
+        Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze1)) as Box<dyn App>)),
     ).expect("Failed to start GUI");
 
 }
