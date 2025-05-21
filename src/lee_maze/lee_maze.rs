@@ -201,8 +201,9 @@ impl Maze {
             let start_pin: &Pin = &net.pins[0]; // &net.pins[0]; TODO: to be replaced by a function that gets the closest pin to a corner
             
             self.original_sources.insert(start_pin.coord);
-            self.grid[start_pin.coord.0][start_pin.coord.1][start_pin.coord.2] =
-                Cell::Start(net_num);
+            self.grid[start_pin.coord.0][start_pin.coord.1][start_pin.coord.2] = Cell::Start(net_num);
+            self.original_sources.insert(start_pin.coord);
+
             //all_sources.push(start);
             self.start_cords.clear();
             self.start_cords.push(start_pin.coord); // Add this source to start_cords
@@ -264,7 +265,13 @@ impl Maze {
                             Cell::Free => " . ".to_string(),
                             Cell::Blocked => " # ".to_string(),
                             Cell::Routed(net_num) => format!("{:^3}", net_num),
-                            Cell::Start(_) => " S ".to_string(),
+                            Cell::Start(net_num) => {
+                                if self.original_sources.contains(&coord) {
+                                    " S ".to_string()
+                                } else {
+                                    format!("{:^3}", net_num)
+                                }
+                            }
                             Cell::Target(_) => " T ".to_string(),
                             Cell::Candidate(cost) => format!("{:^3}", cost),
                         }
