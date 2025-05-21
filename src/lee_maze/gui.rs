@@ -54,7 +54,7 @@ impl App for MazeApp {
                                                     Cell::Free => Color32::WHITE,
                                                     Cell::Blocked => Color32::BLACK,
                                                     Cell::Routed(net_id) => net_color(*net_id),
-                                                    Cell::Start(_) => Color32::DARK_GREEN,
+                                                    Cell::Start(net_id) => net_color(*net_id),
                                                     Cell::Target(_) => Color32::RED,
                                                     Cell::Candidate(_) => Color32::YELLOW,
                                                 }
