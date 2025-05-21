@@ -93,7 +93,7 @@ fn main() {
     eframe::run_native(
         "Maze Routing Visualizer",
         native_options,
-        Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze1)) as Box<dyn App>)),
+        Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze2)) as Box<dyn App>)),
     ).expect("Failed to start GUI");
 
 }

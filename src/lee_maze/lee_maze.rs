@@ -66,9 +66,9 @@ impl Maze {
             return false;
         }
         
-        if l == 0 && r == 0 && c == 1{
-            println!("{:?}",self.grid[l][r][c]);
-        }
+        //if l == 0 && r == 0 && c == 1{
+        //    println!("{:?}",self.grid[l][r][c]);
+        //}
         match self.grid[l][r][c] {
             Cell::Blocked | Cell::Routed(_) => false,
             Cell::Start(net) | Cell::Target(_,net) => net == self.current_net_processed,
@@ -93,7 +93,7 @@ impl Maze {
             let nc = c as isize + dc;
 
             if self.is_valid(nl, nr, nc) {
-                println!("{},{},{}",nl,nr,nc);
+                //println!("{},{},{}",nl,nr,nc);
                 let nl = nl as usize;
                 let nr = nr as usize;
                 let nc = nc as usize;
