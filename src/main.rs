@@ -76,4 +76,14 @@ fn main() {
     );
     maze2.initialize_obstacles(&config.obstacles);
     maze2.process_nets(&sorted_nets);
+    
+    maze1.export_paths_to_file("output_unordered.txt").unwrap_or_else(|err| {
+        eprintln!("Failed to export unordered routing paths: {}", err);
+        process::exit(1);
+    });
+
+    maze2.export_paths_to_file("output_sorted.txt").unwrap_or_else(|err| {
+        eprintln!("Failed to export sorted routing paths: {}", err);
+        process::exit(1);
+    });
 }

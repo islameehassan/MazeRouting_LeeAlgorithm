@@ -1,5 +1,7 @@
 use core::net;
 use std::cmp::Reverse;
+use std::fs::File;
+use std::io::{Write, BufWriter};
 use std::hash::Hash;
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
@@ -28,6 +30,7 @@ pub struct Maze {
     vias: HashSet<Coord>,
     original_sources: HashSet<Coord>,
     current_net_processed: u8,
+    routed_paths: Vec<(String, Vec<Coord>)>,
 }
 
 impl Maze {
@@ -49,6 +52,7 @@ impl Maze {
             vias: HashSet::new(),
             original_sources: HashSet::new(),
             current_net_processed: 1, // temporary
+            routed_paths: Vec::new(),
         }
     }
 
@@ -150,22 +154,25 @@ impl Maze {
 
     fn reconstruct_path(&mut self, end: Coord, parent: &HashMap<Coord, Coord>) {
         let mut current = end;
+        let mut path = vec![current];
 
         while !matches!(self.grid[current.0][current.1][current.2], Cell::Start(_)) {
             let prev = *parent.get(&current).unwrap();
 
-            // If changing layer, mark as Via
             if current.0 != prev.0 {
                 self.vias.insert(current);
                 self.vias.insert(prev);
             }
 
             self.grid[current.0][current.1][current.2] = Cell::Start(self.current_net_processed);
-
-            self.start_cords.push(current);
+            path.push(prev);
             current = prev;
         }
+
+        path.reverse();
+        self.start_cords = path.clone();
     }
+
 
     fn clear_candidates(&mut self) {
         for layer in &mut self.grid {
@@ -201,13 +208,14 @@ impl Maze {
             self.start_cords.push(start_pin.coord); // Add this source to start_cords
 
             // 3
-            for _ in 0..net.pins.len() - 1 {
-                // Perform Dijkstra to route from current sources
-                self.dijkstra();
-                self.clear_candidates(); // Reset candidate cells
-                //self.print_layers_side_by_side();
-            }
-            self.finalize_routing();
+        let mut full_path: Vec<Coord> = vec![self.start_cords[0]]; // initial pin
+        for _ in 0..net.pins.len() - 1 {
+            self.dijkstra();
+            self.clear_candidates();
+            full_path.extend(self.start_cords.iter().skip(1)); // append newly routed segment
+        }
+        self.routed_paths.push((format!("net{}", self.current_net_processed), full_path.clone()));
+        self.finalize_routing();
         }
         println!("\nFinal Layout");
         self.print_layers_side_by_side();
@@ -295,4 +303,19 @@ impl Maze {
             println!(" │ Row {}", r);
         }
     }
+    pub fn export_paths_to_file(&self, filename: &str) -> std::io::Result<()> {
+        let mut file = File::create(filename)?;
+        let mut writer = BufWriter::new(file);
+
+        for (net_name, path) in &self.routed_paths {
+            write!(writer, "{} ", net_name)?;
+            for &(l, x, y) in path {
+                write!(writer, "({},{},{}) ", l + 1, x, y)?; // l + 1 for 1-based layer
+            }
+            writeln!(writer)?;
+        }
+
+        Ok(())
+    }
+
 }
