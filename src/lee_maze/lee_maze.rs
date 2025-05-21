@@ -14,7 +14,7 @@ pub enum Cell {
     Blocked,
     Routed(u32),     // indicate which net
     Start(u32),      // indicate which net
-    Target(u32),    // cost
+    Target(u32,u32),    // cost
     Candidate(u32), // cost
 }
 
@@ -56,12 +56,24 @@ impl Maze {
 
     // Check if a coordinate is within bounds
     fn is_valid(&self, l: isize, r: isize, c: isize) -> bool {
-        l >= 0 && r >= 0 && c >= 0 &&
-        (l as usize) < self.grid.len() &&
-        (r as usize) < self.width &&
-        (c as usize) < self.height &&
-        // Skip Blocked, Routed, and Start cells
-        !matches!(self.grid[l as usize][r as usize][c as usize], Cell::Blocked | Cell::Routed(_) | Cell::Start(_))
+        if l < 0 || r < 0 || c < 0 {
+            return false;
+        }
+    
+        let (l, r, c) = (l as usize, r as usize, c as usize);
+    
+        if l >= self.grid.len() || r >= self.width || c >= self.height {
+            return false;
+        }
+        
+        if l == 0 && r == 0 && c == 1{
+            println!("{:?}",self.grid[l][r][c]);
+        }
+        match self.grid[l][r][c] {
+            Cell::Blocked | Cell::Routed(_) => false,
+            Cell::Start(net) | Cell::Target(_,net) => net == self.current_net_processed,
+            _ => true,
+        }
     }
 
     fn neighbors(&self, l: usize, r: usize, c: usize) -> Vec<(Coord, u32)> {
@@ -81,6 +93,7 @@ impl Maze {
             let nc = c as isize + dc;
 
             if self.is_valid(nl, nr, nc) {
+                println!("{},{},{}",nl,nr,nc);
                 let nl = nl as usize;
                 let nr = nr as usize;
                 let nc = nc as usize;
@@ -96,7 +109,7 @@ impl Maze {
                 } // Horizontal cost on odd layers
 
                 match self.grid[nl][nr][nc] {
-                    Cell::Free | Cell::Candidate(_) | Cell::Target(_) => {
+                    Cell::Free | Cell::Candidate(_) | Cell::Target(_,_) => {
                         result.push(((nl, nr, nc), cost))
                     }
                     _ => {}
@@ -116,7 +129,7 @@ impl Maze {
         }
 
         while let Some((Reverse(cost), (l, r, c))) = queue.pop() {
-            if let Cell::Target(_) = self.grid[l][r][c] {
+            if let Cell::Target(_,_) = self.grid[l][r][c] {
                 // print!("\nNet {} Cost: {}\n",self.current_net_processed, cost);
                 self.reconstruct_path((l, r, c), &parent);
                 return;
@@ -137,9 +150,9 @@ impl Maze {
                             queue.push((Reverse(new_cost), (nl, nr, nc)));
                         }
                     }
-                    Cell::Target(existing_cost) => {
+                    Cell::Target(existing_cost,_) => {
                         if new_cost < existing_cost {
-                            self.grid[nl][nr][nc] = Cell::Target(new_cost);
+                            self.grid[nl][nr][nc] = Cell::Target(new_cost,self.current_net_processed);
                             parent.insert((nl, nr, nc), (l, r, c));
                             queue.push((Reverse(new_cost), (nl, nr, nc)));
                         }
@@ -185,6 +198,21 @@ impl Maze {
     }
 
     pub fn process_nets(&mut self, nets: &Vec<Net>) {
+
+        for net in nets {
+            let net_num = net
+                ._net_name
+                .strip_prefix("net")
+                .unwrap()
+                .parse::<u32>()
+                .unwrap();
+    
+            for pin in &net.pins {
+                let coord = pin.coord;
+                self.grid[coord.0][coord.1][coord.2] = Cell::Start(net_num);
+            }
+        }
+        
         for net in nets {
             let net_num = net
                 ._net_name
@@ -234,7 +262,7 @@ impl Maze {
 
     fn set_as_target(&mut self, pins: &Vec<Pin>) {
         for pin in pins {
-            self.grid[pin.coord.0][pin.coord.1][pin.coord.2] = Cell::Target(MAX);
+            self.grid[pin.coord.0][pin.coord.1][pin.coord.2] = Cell::Target(MAX,self.current_net_processed);
         }
     }
 
@@ -271,7 +299,7 @@ impl Maze {
                                     format!("{:^3}", net_num)
                                 }
                             }
-                            Cell::Target(_) => " T ".to_string(),
+                            Cell::Target(_,_) => " T ".to_string(),
                             Cell::Candidate(cost) => format!("{:^3}", cost),
                         }
                     };
@@ -298,7 +326,7 @@ impl Maze {
                             Cell::Blocked => " # ".to_string(),
                             Cell::Routed(net_num) => format!("{:^3}", net_num),
                             Cell::Start(_) => " S ".to_string(),
-                            Cell::Target(_) => " T ".to_string(),
+                            Cell::Target(_,_) => " T ".to_string(),
                             Cell::Candidate(cost) => format!("{:^3}", cost),
                         }
                     };
