@@ -46,4 +46,4 @@ pub struct Net {
     pub pins: Vec<Pin>,
 }
 
-type Coord = (usize, usize, usize); // layer,x,y
+pub type Coord = (usize, usize, usize); // layer,x,y
