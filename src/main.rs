@@ -1,7 +1,7 @@
-use std::env;
-use std::process;
-
+use std::{env, process};
+use eframe::{self, App};
 use mazerouting_lee::{usage, Config, Maze};
+use mazerouting_lee::lee_maze::gui::MazeApp;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -54,7 +54,7 @@ fn main() {
         let last = net.pins.last().unwrap().coord;
         let dist = (first.1 as isize - last.1 as isize).abs()
                  + (first.2 as isize - last.2 as isize).abs();
-        std::cmp::Reverse(dist) // Reverse for descending
+        std::cmp::Reverse(dist)
     });
 
     println!("Routing Order (Sorted):");
@@ -76,4 +76,14 @@ fn main() {
     );
     maze2.initialize_obstacles(&config.obstacles);
     maze2.process_nets(&sorted_nets);
+
+    // === Launch GUI with maze2 ===
+    let native_options = eframe::NativeOptions::default();
+
+    eframe::run_native(
+        "Maze Routing Visualizer",
+        native_options,
+        Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze2)) as Box<dyn App>)),
+    ).expect("Failed to start GUI");
+
 }

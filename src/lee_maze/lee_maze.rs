@@ -1,6 +1,4 @@
-use core::net;
 use std::cmp::Reverse;
-use std::hash::Hash;
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
     u32::MAX,
@@ -19,15 +17,15 @@ pub enum Cell {
 }
 
 pub struct Maze {
-    grid: Vec<Vec<Vec<Cell>>>, // [layer][row][col]
-    start_cords: Vec<Coord>,
-    via_cost: u32,
-    width: usize,
-    height: usize,
-    nonpreferred_direction_cost: u32,
-    vias: HashSet<Coord>,
-    original_sources: HashSet<Coord>,
-    current_net_processed: u8,
+    pub grid: Vec<Vec<Vec<Cell>>>, // [layer][row][col]
+    pub start_cords: Vec<Coord>,
+    pub via_cost: u32,
+    pub width: usize,
+    pub height: usize,
+    pub nonpreferred_direction_cost: u32,
+    pub vias: HashSet<Coord>,
+    pub original_sources: HashSet<Coord>,
+    pub current_net_processed: u8,
 }
 
 impl Maze {
@@ -193,7 +191,10 @@ impl Maze {
             self.set_as_target(&net.pins);
             let start_pin: &Pin = &net.pins[0]; // &net.pins[0]; TODO: to be replaced by a function that gets the closest pin to a corner
             
-            self.original_sources.insert(start_pin.coord);
+            for pin in &net.pins {
+                self.original_sources.insert(pin.coord);
+            }
+
             self.grid[start_pin.coord.0][start_pin.coord.1][start_pin.coord.2] =
                 Cell::Start(net_num);
             //all_sources.push(start);
