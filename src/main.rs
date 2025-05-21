@@ -99,10 +99,18 @@ fn main() {
         process::exit(1);
     });
 
+    // === Launch GUI with maze1 (The One Without The Heuristic) ===
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "Maze 1 (Unordered) Routing Visualizer",
+        native_options,
+        Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze1)) as Box<dyn App>)),
+    ).expect("Failed to start GUI1");
+    
     // === Launch GUI with maze2 (The One With The Heuristic) ===
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "Maze Routing Visualizer",
+        "Maze 2 (Sorted) Routing Visualizer",
         native_options,
         Box::new(move |_cc| Ok(Box::new(MazeApp::new(maze2)) as Box<dyn App>)),
     ).expect("Failed to start GUI");
@@ -136,23 +144,4 @@ fn manhattan_distance(net: &Net) -> usize {
     let dy = (first.2 as isize - last.2 as isize).abs();
 
     (dx + dy) as usize
-}
-
-fn estimated_net_cost(net: &Net, non_pref_cost: i32) -> u32 {
-    let first = net.pins.first().unwrap().coord;
-    let last = net.pins.last().unwrap().coord;
-
-    let dx = (first.1 as i32 - last.1 as i32).abs();
-    let dy = (first.2 as i32 - last.2 as i32).abs();
-
-    let mut cost = dx + dy;
-
-    // Non-preferred direction penalty
-    if first.0 % 2 == 0 {
-        cost += dy * non_pref_cost;
-    } else {
-        cost += dx * non_pref_cost;
-    }
-
-    cost.max(0) as u32
 }
